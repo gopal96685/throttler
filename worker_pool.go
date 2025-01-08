@@ -82,7 +82,7 @@ func (wp *WorkerPool[T, R]) AddTask(opts TaskOptions, input T, task Executable[T
 	}
 
 	wp.mu.Lock()
-	wp.taskQueue.Push(taskInfo)
+	wp.taskQueue.Insert(taskInfo)
 	wp.metrics.CurrentQueueSize.Add(1)
 	wp.mu.Unlock()
 
@@ -113,7 +113,7 @@ func (wp *WorkerPool[T, R]) AddFunction(
 	}
 
 	wp.mu.Lock()
-	wp.taskQueue.Push(taskInfo)
+	wp.taskQueue.Insert(taskInfo)
 	wp.metrics.CurrentQueueSize.Add(1)
 	wp.mu.Unlock()
 
@@ -151,7 +151,7 @@ func (wp *WorkerPool[T, R]) worker() {
 				continue
 			}
 
-			taskInfo := wp.taskQueue.Pop().(*TaskInfo[T, R])
+			taskInfo, _ := wp.taskQueue.Extract()
 			wp.metrics.CurrentQueueSize.Add(-1)
 			wp.mu.Unlock()
 
@@ -182,7 +182,7 @@ func (wp *WorkerPool[T, R]) worker() {
 					time.Sleep(taskInfo.Backoff)
 
 					wp.mu.Lock()
-					wp.taskQueue.Push(taskInfo)
+					wp.taskQueue.Insert(taskInfo)
 					wp.metrics.CurrentQueueSize.Add(1)
 					wp.mu.Unlock()
 					continue

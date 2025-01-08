@@ -2,6 +2,7 @@ package throttler
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -39,45 +40,88 @@ type TaskResult[R any] struct {
 	CompletedAt time.Time
 }
 
-// TaskQueue implements a priority queue using a min-heap.
-type TaskQueue[T any, R any] []*TaskInfo[T, R]
+// TaskQueue implements a priority queue as a min-heap.
+type TaskQueue[T any, R any] struct {
+	tasks []*TaskInfo[T, R]
+}
 
 // NewTaskQueue creates a new task queue.
 func NewTaskQueue[T any, R any]() *TaskQueue[T, R] {
-	return &TaskQueue[T, R]{}
+	return &TaskQueue[T, R]{
+		tasks: make([]*TaskInfo[T, R], 0),
+	}
 }
 
 // Len returns the number of tasks in the queue.
-func (h TaskQueue[T, R]) Len() int {
-	return len(h)
+func (q *TaskQueue[T, R]) Len() int {
+	return len(q.tasks)
 }
 
-// Less compares task priority and order for heap structure.
-func (h TaskQueue[T, R]) Less(i, j int) bool {
-	if h[i].Priority == h[j].Priority {
-		return h[i].order < h[j].order
+// Insert adds a task into the queue and maintains heap properties.
+func (q *TaskQueue[T, R]) Insert(task *TaskInfo[T, R]) {
+	q.tasks = append(q.tasks, task)
+	q.bubbleUp(len(q.tasks) - 1)
+}
+
+// Extract removes and returns the task with the highest priority.
+func (q *TaskQueue[T, R]) Extract() (*TaskInfo[T, R], error) {
+	if q.Len() == 0 {
+		return nil, errors.New("task queue is empty")
 	}
-	return h[i].Priority < h[j].Priority
-}
 
-// Swap switches two tasks in the heap.
-func (h TaskQueue[T, R]) Swap(i, j int) {
-	h[i], h[j] = h[j], h[i]
-}
+	// Swap root with last element.
+	n := len(q.tasks) - 1
+	q.swap(0, n)
 
-// Push adds a task to the heap.
-func (h *TaskQueue[T, R]) Push(x interface{}) {
-	*h = append(*h, x.(*TaskInfo[T, R]))
-}
+	// Remove the last element (smallest task).
+	task := q.tasks[n]
+	q.tasks = q.tasks[:n]
 
-// Pop removes and returns the highest-priority task.
-func (h *TaskQueue[T, R]) Pop() interface{} {
-	old := *h
-	n := len(old)
-	if n == 0 {
-		return nil
+	// Restore heap properties.
+	if len(q.tasks) > 0 {
+		q.bubbleDown(0)
 	}
-	item := old[0]
-	*h = old[1:n]
-	return item
+
+	return task, nil
+}
+
+// bubbleUp restores the heap property upwards from the given index.
+func (q *TaskQueue[T, R]) bubbleUp(index int) {
+	parent := (index - 1) / 2
+	if parent >= 0 && q.less(index, parent) {
+		q.swap(index, parent)
+		q.bubbleUp(parent)
+	}
+}
+
+// bubbleDown restores the heap property downwards from the given index.
+func (q *TaskQueue[T, R]) bubbleDown(index int) {
+	left := 2*index + 1
+	right := 2*index + 2
+	smallest := index
+
+	if left < len(q.tasks) && q.less(left, smallest) {
+		smallest = left
+	}
+	if right < len(q.tasks) && q.less(right, smallest) {
+		smallest = right
+	}
+
+	if smallest != index {
+		q.swap(index, smallest)
+		q.bubbleDown(smallest)
+	}
+}
+
+// less determines the priority between two tasks.
+func (q *TaskQueue[T, R]) less(i, j int) bool {
+	if q.tasks[i].Priority == q.tasks[j].Priority {
+		return q.tasks[i].order < q.tasks[j].order
+	}
+	return q.tasks[i].Priority < q.tasks[j].Priority
+}
+
+// swap exchanges two tasks in the heap.
+func (q *TaskQueue[T, R]) swap(i, j int) {
+	q.tasks[i], q.tasks[j] = q.tasks[j], q.tasks[i]
 }
