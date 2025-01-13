@@ -36,19 +36,3 @@ func (r *RateLimiter) setInterval(interval time.Duration) {
 	}
 	r.ticker = time.NewTicker(interval)
 }
-
-// GetInterval returns the current interval in time.Duration
-func (r *RateLimiter) GetInterval() time.Duration {
-	return time.Duration(r.interval.Load())
-}
-
-// Stop stops the ticker
-func (r *RateLimiter) Stop() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.ticker != nil {
-		r.ticker.Stop()
-		r.ticker = nil
-	}
-}

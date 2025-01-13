@@ -22,15 +22,6 @@ type TaskOptions struct {
 	Context    context.Context
 }
 
-// Task wraps inputs, outputs, and execution logic for a generic task.
-type TaskInfo[T any, R any] struct {
-	TaskOptions
-	input  T
-	task   Executable[T, R]
-	order  int64
-	result chan TaskResult[R]
-}
-
 // TaskResult encapsulates the output or error after task execution.
 type TaskResult[R any] struct {
 	TaskID      string
@@ -38,6 +29,15 @@ type TaskResult[R any] struct {
 	Error       error
 	RetryCount  int
 	CompletedAt time.Time
+}
+
+// Task wraps inputs, outputs, and execution logic for a generic task.
+type TaskInfo[T any, R any] struct {
+	TaskOptions
+	input  T
+	task   Executable[T, R]
+	order  int64
+	result chan TaskResult[R]
 }
 
 // TaskQueue implements a priority queue as a min-heap.
@@ -114,6 +114,7 @@ func (q *TaskQueue[T, R]) bubbleDown(index int) {
 }
 
 // less determines the priority between two tasks.
+// smaller the number higher the priority
 func (q *TaskQueue[T, R]) less(i, j int) bool {
 	if q.tasks[i].Priority == q.tasks[j].Priority {
 		return q.tasks[i].order < q.tasks[j].order
